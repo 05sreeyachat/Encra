@@ -1,0 +1,91 @@
+{% extends "layout.html" %}
+
+{% block title %}Encrypt File{% endblock %}
+
+{% block content %}
+<div class="cyber-card">
+    <h2 style="color:var(--primary); margin-bottom:1.5rem;">[ ENCRYPT_FILE ]</h2>
+
+    <form method="POST" enctype="multipart/form-data">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <!-- 1. File Upload -->
+        <div class="input-group">
+            <label>TARGET_FILE</label>
+            <div style="border: 1px dashed var(--accent); padding: 20px; text-align: center; cursor: pointer; position: relative;"
+                id="dropZone">
+                <span id="fileName" style="color: var(--text-muted);">[ CLICK / DROP FILE HERE ]</span>
+                <input type="file" name="file" required
+                    style="opacity: 0; position: absolute; top:0; left:0; width:100%; height:100%; cursor: pointer;"
+                    onchange="document.getElementById('fileName').innerText = this.files[0].name; document.getElementById('fileName').style.color='var(--primary)'">
+            </div>
+        </div>
+
+        <!-- 2. Emails -->
+        <div class="input-group">
+            <label>YOUR_EMAIL (SENDER)</label>
+            <input type="email" name="email" placeholder="sender@example.com" required>
+        </div>
+
+        <div class="input-group">
+            <label style="color:#ffcc00;">TARGET_EMAIL (RECEIVER)</label>
+            <input type="email" name="receiver_email" placeholder="receiver@example.com" required>
+            <div style="font-size:0.8rem; color:var(--text-muted); margin-top:5px;">
+                * System will auto-send secure QR code to this email.
+            </div>
+        </div>
+
+        <!-- 3. Password -->
+        <div class="input-group">
+            <label>ENCRYPTION_PASSWORD</label>
+            <input type="password" name="password" minlength="8" maxlength="64" placeholder="Min 8 chars" required>
+        </div>
+
+        <!-- 4. Encryption Methods -->
+        <div class="input-group">
+            <label>ALGORITHMS (CHAINED)</label>
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+                <label style="display: flex; align-items: center; cursor: pointer;">
+                    <input type="checkbox" name="encryption_methods" value="aes256" checked
+                        style="width:auto; margin-right:10px;">
+                    AES-256 (CBC)
+                </label>
+                <label style="display: flex; align-items: center; cursor: pointer;">
+                    <input type="checkbox" name="encryption_methods" value="blowfish"
+                        style="width:auto; margin-right:10px;">
+                    Blowfish
+                </label>
+                <label style="display: flex; align-items: center; cursor: pointer;">
+                    <input type="checkbox" name="encryption_methods" value="tripledes"
+                        style="width:auto; margin-right:10px;">
+                    Triple DES
+                </label>
+                <label style="display: flex; align-items: center; cursor: pointer;">
+                    <input type="checkbox" name="encryption_methods" value="fernet"
+                        style="width:auto; margin-right:10px;">
+                    Fernet (Sym)
+                </label>
+            </div>
+        </div>
+
+        <!-- 5. Options -->
+        <div class="input-group">
+            <label>SELF_DESTRUCT_TIMER (QR EXPIRY)</label>
+            <select name="qr_expiry_minutes">
+                <option value="1">1 Minute</option>
+                <option value="5">5 Minutes</option>
+                <option value="10" selected>10 Minutes</option>
+                <option value="30">30 Minutes</option>
+                <option value="60">1 Hour</option>
+            </select>
+        </div>
+
+        <button type="submit" class="btn btn-block" style="margin-top:1rem;">
+            [ INITIATE_ENCRYPTION_PROTOCOL ]
+        </button>
+    </form>
+
+    <div style="text-align: center; margin-top: 2rem;">
+        <a href="{{ url_for('home') }}" style="color:var(--text-muted); font-size:0.9rem;">&lt; ABORT </a>
+    </div>
+</div>
+{% endblock %}

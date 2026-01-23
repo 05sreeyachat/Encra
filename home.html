@@ -1,0 +1,40 @@
+{% extends "layout.html" %}
+
+{% block title %}Secure Dashboard{% endblock %}
+
+{% block content %}
+<div style="text-align: center; margin-bottom: 3rem;">
+    <h1 style="font-size: 2.5rem; margin-bottom: 0.5rem; text-shadow: 0 0 10px rgba(0,255,136,0.3);">
+        SECURE <span style="color:var(--primary);">FILE</span> TRANSFER
+    </h1>
+    <p style="color:var(--text-muted);">End-to-End Encrypted & Self-Destructing</p>
+</div>
+
+<div style="display: grid; grid-template-columns: 1fr; gap: 2rem;">
+    <!-- Sender Actions -->
+    <a href="{{ url_for('encrypt') }}" class="cyber-card" style="text-decoration:none; display:block; transition:0.3s linear;">
+        <h2 style="color:var(--primary); border-bottom: 1px solid #333; padding-bottom:10px;">
+            <span style="font-size:1.5rem">↑</span> SENDER
+        </h2>
+        <p style="color: var(--text-main); margin: 1rem 0;">
+            Upload files, encrypt with multi-layer algorithms, and send secure self-destructing links via email.
+        </p>
+        <div style="margin-top:1rem; color:var(--accent); font-family:var(--font-mono);">
+            [ START NEW TRANSFER ]
+        </div>
+    </a>
+
+    <!-- Receiver Instructions (No direct link as they scan QR, but for UX balance) -->
+    <div class="cyber-card" style="opacity: 0.7;">
+        <h2 style="color:var(--accent); border-bottom: 1px solid #333; padding-bottom:10px;">
+            <span style="font-size:1.5rem">↓</span> RECEIVER
+        </h2>
+        <p style="color: var(--text-main); margin: 1rem 0;">
+            To access a file, please check your email for a secure QR code or link sent by the uploader.
+        </p>
+        <div style="margin-top:1rem; color:#666; font-family:var(--font-mono);">
+            [ WAITING FOR SIGNAL... ]
+        </div>
+    </div>
+</div>
+{% endblock %}

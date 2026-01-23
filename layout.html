@@ -1,0 +1,256 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}Secure File System{% endblock %}</title>
+    <meta name="csrf-token" content="{{ csrf_token() }}">
+    <!-- Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Inter:wght@300;400;600&display=swap"
+        rel="stylesheet">
+    <style>
+        :root {
+            --bg-color: #050510;
+            --card-bg: #101020;
+            --primary: #00ff88;
+            /* Cyber Green */
+            --accent: #00d4ff;
+            /* Cyber Blue */
+            --error: #ff4444;
+            --text-main: #e0e0e0;
+            --text-muted: #8899a6;
+            --glow: 0 0 10px rgba(0, 255, 136, 0.3);
+            --font-mono: 'Share Tech Mono', monospace;
+            --font-sans: 'Inter', sans-serif;
+        }
+
+        * {
+            box-sizing: border-box;
+            user-select: none;
+            /* Global anti-selection */
+        }
+
+        body {
+            background-color: var(--bg-color);
+            color: var(--text-main);
+            font-family: var(--font-sans);
+            margin: 0;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            overflow-x: hidden;
+            background-image:
+                radial-gradient(circle at 10% 20%, rgba(0, 212, 255, 0.05) 0%, transparent 20%),
+                radial-gradient(circle at 90% 80%, rgba(0, 255, 136, 0.05) 0%, transparent 20%);
+        }
+
+        /* Anti-Copy / Anti-Print */
+        @media print {
+            body {
+                display: none !important;
+            }
+        }
+
+        body.security-lock {
+            filter: blur(20px);
+            pointer-events: none;
+        }
+
+        /* Typography */
+        h1,
+        h2,
+        h3 {
+            font-family: var(--font-mono);
+            letter-spacing: 1px;
+            color: white;
+            text-transform: uppercase;
+        }
+
+        a {
+            text-decoration: none;
+            color: inherit;
+            transition: 0.3s;
+        }
+
+        /* Components */
+        .container {
+            width: 100%;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+        }
+
+        .cyber-card {
+            background: var(--card-bg);
+            border: 1px solid rgba(0, 255, 136, 0.1);
+            border-radius: 4px;
+            padding: 2rem;
+            position: relative;
+            box-shadow: 0 0 20px rgba(0, 0, 0, 0.5);
+            backdrop-filter: blur(5px);
+        }
+
+        .cyber-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 1px;
+            background: linear-gradient(90deg, transparent, var(--primary), transparent);
+        }
+
+        .btn {
+            display: inline-block;
+            padding: 12px 24px;
+            background: transparent;
+            border: 1px solid var(--primary);
+            color: var(--primary);
+            font-family: var(--font-mono);
+            font-size: 1rem;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            border-radius: 2px;
+            text-align: center;
+        }
+
+        .btn:hover {
+            background: var(--primary);
+            color: #000;
+            box-shadow: var(--glow);
+        }
+
+        .btn-block {
+            width: 100%;
+        }
+
+        .input-group {
+            margin-bottom: 1.5rem;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 0.5rem;
+            color: var(--accent);
+            font-size: 0.9rem;
+            font-family: var(--font-mono);
+        }
+
+        input[type="text"],
+        input[type="email"],
+        input[type="password"],
+        select,
+        textarea {
+            width: 100%;
+            padding: 12px;
+            background: rgba(0, 0, 0, 0.3);
+            border: 1px solid #333;
+            color: white;
+            font-family: var(--font-sans);
+            border-radius: 2px;
+            transition: 0.3s;
+        }
+
+        input:focus {
+            outline: none;
+            border-color: var(--accent);
+            box-shadow: 0 0 5px rgba(0, 212, 255, 0.2);
+        }
+
+        /* Global Security UI */
+        .secure-container {
+            width: 100vw;
+            height: 100vh;
+            position: fixed;
+            top: 0;
+            left: 0;
+            background: #000;
+            color: #ccc;
+            z-index: 100;
+            overflow: auto;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        .watermark {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            pointer-events: none;
+            opacity: 0.1;
+            z-index: 999;
+            background-image: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="200" height="200" viewBox="0 0 200 200"><text x="50%" y="50%" font-size="20" fill="gray" transform="rotate(-45 100 100)" text-anchor="middle">CONFIDENTIAL</text></svg>');
+        }
+
+        #camView {
+            position: fixed;
+            bottom: 10px;
+            right: 10px;
+            width: 50px;
+            height: 50px;
+            background: #222;
+            border: 2px solid #555;
+            border-radius: 50%;
+            z-index: 1000;
+        }
+
+        .alert {
+            padding: 15px;
+            margin-bottom: 20px;
+            background: rgba(255, 68, 68, 0.1);
+            border-left: 3px solid var(--error);
+            color: #ffaaaa;
+        }
+
+        .success {
+            border-color: var(--primary);
+            color: var(--primary);
+            background: rgba(0, 255, 136, 0.1);
+        }
+
+        /* Footer */
+        footer {
+            text-align: center;
+            padding: 20px;
+            color: #444;
+            font-size: 0.8rem;
+            font-family: var(--font-mono);
+        }
+    </style>
+    {% block head %}{% endblock %}
+</head>
+
+<body>
+    <div class="container">
+        {% with messages = get_flashed_messages() %}
+        {% if messages %}
+        {% for message in messages %}
+        <div class="alert {{ 'success' if 'success' in message.lower() else '' }} cyber-card" style="padding:1rem;">
+            {{ message }}
+        </div>
+        {% endfor %}
+        {% endif %}
+        {% endwith %}
+
+        {% block content %}{% endblock %}
+    </div>
+
+    <footer>
+        SECURE FILE SYSTEM // V 2.0 // ENCRYPTED & MONITORED
+    </footer>
+
+    {% block scripts %}{% endblock %}
+</body>
+
+</html>

@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Secure Decryption</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Arial, sans-serif;
+            margin: 0;
+            min-height: 100vh;
+            background: linear-gradient(-45deg, #000000, #1a0b2e, #0b2e1a, #0b1a2e);
+            background-size: 400% 400%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #ffffff;
+        }
+        .container {
+            background: rgba(20, 3, 3, 0.98);
+            padding: 50px;
+            border-radius: 30px;
+            box-shadow: 0 15px 35px rgba(167, 23, 23, 0.8);
+            max-width: 500px;
+            width: 100%;
+            text-align: center;
+        }
+        input[type="password"] {
+            width: 100%;
+            padding: 15px;
+            margin: 20px 0;
+            border-radius: 8px;
+            border: 1px solid #333;
+            background: #1a1a1a;
+            color: white;
+        }
+        button {
+            background: linear-gradient(45deg, #5078f1, #bc272f);
+            color: white;
+            padding: 15px 30px;
+            border: none;
+            border-radius: 12px;
+            cursor: pointer;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Secure File Decryption</h1>
+        <div class="info-box">
+            <p>Enter decryption key to access file: {{ token }}</p>
+        </div>
+        <form method="POST" onsubmit="return logAttempt(event)">
+            <input type="password" name="key" required>
+            <button type="submit">Decrypt</button>
+        </form>
+    </div>
+
+    <script>
+        function logAttempt(e) {
+            e.preventDefault();
+            const password = document.querySelector('input[name="key"]').value;
+            
+            fetch("{{ url_for('alert') }}", {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    reason: "honeypot_password_attempt",
+                    action: "password_try",
+                    password: password,
+                    token: "{{ token }}"
+                })
+            });
+
+            setTimeout(() => {
+                alert("Invalid decryption key");
+            }, 1000);
+            return false;
+        }
+    </script>
+</body>
+</html>
