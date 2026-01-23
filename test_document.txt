@@ -1,0 +1,14 @@
+This is a test document to verify that the encryption system can handle text files properly.
+
+The system should now support:
+- Text files (.txt)
+- PDF documents (.pdf)
+- Word documents (.doc, .docx)
+- Excel spreadsheets (.xls, .xlsx)
+- PowerPoint presentations (.ppt, .pptx)
+- Images (.png, .jpg, .jpeg)
+
+All these file types should be encrypted and decrypted properly while maintaining their original format and filename.
+
+
+
