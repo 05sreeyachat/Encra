@@ -20,6 +20,14 @@ from file_utils import extract_text_content, detect_mime_type, estimate_page_cou
 from audit_logger import log_audit_event, export_audit_logs_csv, get_logs_for_token
 from token_manager import generate_secure_token, hash_token, save_token_metadata, get_token_metadata, is_token_valid, invalidate_token
 import security_config
+import threading
+
+def send_async_email(func, *args, **kwargs):
+    """Executes email sending in a background thread to prevent blocking."""
+    thread = threading.Thread(target=func, args=args, kwargs=kwargs)
+    thread.daemon = True
+    thread.start()
+    return thread
 
 app = Flask(__name__)
 # Use a stable key for development to avoid session invalidation on restarts
@@ -175,24 +183,38 @@ def encrypt():
             # Audit log
             log_audit_event("TOKEN_CREATED", token_hash=token_hash, receiver_email=receiver_email, ip=request.remote_addr, status="SUCCESS")
                 
-            # 8. Send Emails
-            # 8a: To Sender (Confirmation)
-            send_email(
-                sender_email, 
-                "File Secured & Sent", 
-                f"Your file has been encrypted and sent to {receiver_email}.\nFile ID: {token_hash}\nExpires: {expires_at}"
-            )
-            
-            # 8b: To Receiver (QR Code)
-            send_email_with_qr(
-                receiver_email,
-                "You have received a Secure File",
-                f"A secure file has been shared with you by {sender_email}.\nScan the attached QR code or use the link below to access it.\nPassword is provided separately by the sender.",
-                qr_path,
-                share_url
-            )
-            
-            flash('File encrypted and sent successfully!')
+            # 8. Send Emails (ASYNCHRONOUS)
+            email_queued = False
+            try:
+                # 8a: To Sender (Confirmation)
+                send_async_email(
+                    send_email,
+                    sender_email, 
+                    "File Secured & Sent", 
+                    f"Your file has been encrypted and sent to {receiver_email}.\nFile ID: {token_hash}\nExpires: {expires_at}"
+                )
+                
+                # 8b: To Receiver (QR Code)
+                send_async_email(
+                    send_email_with_qr,
+                    receiver_email,
+                    "You have received a Secure File",
+                    f"A secure file has been shared with you by {sender_email}.\nScan the attached QR code or use the link below to access it.\nPassword is provided separately by the sender.",
+                    qr_path,
+                    share_url
+                )
+                email_queued = True
+                app.logger.info(f"[Encrypt] Email delivery queued for {token_hash}")
+            except Exception as e:
+                app.logger.error(f"[Encrypt] Failed to queue emails: {e}")
+
+            # 9. Feedback & UI
+            flash("QR Generated ✅")
+            if email_queued:
+                flash("Email delivery queued ✉️")
+            else:
+                flash("Email service unavailable ⚠️ please share QR manually")
+
             return render_template('qr_code.html', 
                                    qr_code=qr_filename, 
                                    file_id=token_hash, 
@@ -200,6 +222,7 @@ def encrypt():
                                    expires_at=meta['expires_at'],
                                    sender_email=sender_email)
         except Exception as e:
+            app.logger.error(f"Critical Encryption Error: {e}")
             flash(f"An error occurred: {str(e)}")
             return redirect(request.url)
 
@@ -535,10 +558,13 @@ def handle_destruction(file_id, reason):
     # We always audit if it's the first time (session check passed).
     if sender_email:
         try:
+            # Capture forensics IMMEDIATELY while request context is active
             forensics = get_client_forensics(request)
             forensics['receiver_email'] = receiver_email
             
-            send_alert_email(
+            # Send alert in background
+            send_async_email(
+                send_alert_email,
                 sender_email,
                 file_id,
                 "CONTENT DESTROYED",
@@ -548,7 +574,7 @@ def handle_destruction(file_id, reason):
             # Log the formal destruction event
             log_audit_event("CONTENT_DESTROYED", token_hash=file_id, ip=request.remote_addr, status="COMPLETED", reason=reason)
         except Exception as e:
-            print(f"Failed to send destruction alert: {e}")
+            app.logger.error(f"[Destruction] Failed to process alert/audit: {e}")
 
 if __name__ == '__main__':
     app.run(debug=True, host='0.0.0.0', port=5050, ssl_context='adhoc')
