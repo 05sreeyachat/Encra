@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Decrypted Content</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-dark: #000000;
+            --text-light: #f8fafc;
+            --text-danger: #ff0000;
+        }
+        
+        body {
+            background-color: var(--bg-dark);
+            color: var(--text-light);
+            font-family: 'Inter', sans-serif;
+            margin: 0;
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .container {
+            height: 100vh;
+            width: 100vw;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .content {
+            text-align: center;
+        }
+
+        .warning {
+            display: none;
+            color: var(--text-danger);
+            font-size: 1.5em;
+            font-weight: 600;
+            text-align: center;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="content">{{ content }}</div>
+        <div class="warning" id="warning">⚠ File destroyed</div>
+    </div>
+
+    <script>
+        // Add event listeners for screenshot attempts
+        document.addEventListener('keyup', function(e) {
+            if (e.key === 'PrintScreen') {
+                showWarning();
+            }
+        });
+
+        document.addEventListener('keydown', function(e) {
+            // Detect Windows + Shift + S
+            if (e.shiftKey && e.key === 'S') {
+                showWarning();
+            }
+            // Detect PrintScreen
+            if (e.key === 'PrintScreen') {
+                e.preventDefault();
+                showWarning();
+            }
+            // Detect Ctrl + S
+            if (e.ctrlKey && e.key === 's') {
+                e.preventDefault();
+                showWarning();
+            }
+        });
+
+        function showWarning() {
+            document.querySelector('.content').style.display = 'none';
+            document.getElementById('warning').style.display = 'block';
+            // Prevent going back to previous page
+            history.pushState(null, '', window.location.href);
+            window.onpopstate = function() {
+                history.pushState(null, '', window.location.href);
+            };
+            // Redirect to home after 5 seconds
+            setTimeout(function() {
+                window.location.href = '/';
+            }, 5000);
+        }
+    </script>
+</body>
+</html>

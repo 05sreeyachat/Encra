@@ -1,0 +1,286 @@
+{% extends "layout.html" %}
+
+{% block content %}
+<div class="max-w-6xl mx-auto space-y-8">
+
+    <!-- Header -->
+    <div class="flex flex-col md:flex-row justify-between items-center border-b border-cyan-500/30 pb-6">
+        <div>
+            <h1
+                class="text-3xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 to-blue-500 font-mono">
+                <i class="fas fa-shield-alt mr-3"></i>Encryption Proof Report
+            </h1>
+            <p class="text-slate-400 mt-2 font-mono text-sm">Case ID: <span class="text-cyan-400">{{ file_id }}</span>
+            </p>
+        </div>
+        <div class="flex space-x-4 mt-4 md:mt-0">
+            <button onclick="downloadReport()"
+                class="px-4 py-2 bg-slate-800 hover:bg-slate-700 border border-cyan-500/50 rounded text-cyan-400 flex items-center transition-all">
+                <i class="fas fa-file-pdf mr-2"></i> Export PDF
+            </button>
+            <a href="{{ url_for('download_encrypted', file_id=file_id) }}"
+                class="px-4 py-2 bg-red-900/20 hover:bg-red-900/40 border border-red-500/50 rounded text-red-400 flex items-center transition-all">
+                <i class="fas fa-file-code mr-2"></i> Download Encrypted Blob
+            </a>
+        </div>
+    </div>
+
+    <!-- Evidence Grid -->
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-6" id="evidence-container">
+
+        <!-- File Integrity Evidence -->
+        <div
+            class="bg-slate-900/50 backdrop-blur border border-cyan-500/30 rounded-xl p-6 relative overflow-hidden group">
+            <div class="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
+                <i class="fas fa-file-contract text-6xl text-cyan-500"></i>
+            </div>
+            <h3 class="text-xl font-bold text-white mb-4 flex items-center">
+                <i class="fas fa-fingerprint text-cyan-400 mr-2"></i> File Integrity Evidence
+            </h3>
+            <div class="space-y-3 font-mono text-sm">
+                <div class="flex justify-between border-b border-slate-700/50 pb-2">
+                    <span class="text-slate-400">Original Filename</span>
+                    <span class="text-white">{{ meta['filename'] }}</span>
+                </div>
+                <div class="flex justify-between border-b border-slate-700/50 pb-2">
+                    <span class="text-slate-400">Original Size</span>
+                    <span class="text-cyan-300">{{ crypto.get('original_size', 'N/A') }} bytes</span>
+                </div>
+                <div class="flex justify-between border-b border-slate-700/50 pb-2">
+                    <span class="text-slate-400">Encrypted Size</span>
+                    <span class="text-red-300">{{ crypto.get('encrypted_size', 'N/A') }} bytes</span>
+                </div>
+                <!-- Hashes -->
+                <div class="pt-2">
+                    <p class="text-slate-400 text-xs mb-1">SHA-256 (Original)</p>
+                    <div
+                        class="bg-slate-950 p-2 rounded border border-slate-800 text-xs text-green-400 break-all select-all">
+                        {{ crypto.get('original_hash', 'PENDING_VERIFICATION') }}
+                    </div>
+                </div>
+                <div class="pt-2">
+                    <p class="text-slate-400 text-xs mb-1">SHA-256 (Encrypted)</p>
+                    <div
+                        class="bg-slate-950 p-2 rounded border border-slate-800 text-xs text-red-400 break-all select-all">
+                        {{ crypto.get('encrypted_hash', 'N/A') }}
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Cryptographic Parameters -->
+        <div
+            class="bg-slate-900/50 backdrop-blur border border-blue-500/30 rounded-xl p-6 relative overflow-hidden group">
+            <div class="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
+                <i class="fas fa-key text-6xl text-blue-500"></i>
+            </div>
+            <h3 class="text-xl font-bold text-white mb-4 flex items-center">
+                <i class="fas fa-lock text-blue-400 mr-2"></i> Cryptography Chain
+            </h3>
+            <div class="space-y-3 font-mono text-sm">
+                <div class="flex justify-between border-b border-slate-700/50 pb-2">
+                    <span class="text-slate-400">Encryption Method(s)</span>
+                    <span class="text-blue-300">{{ crypto.get('method', 'AES-256') | replace('[', '') | replace(']', '')
+                        | replace("'", "") }}</span>
+                </div>
+                <div class="flex justify-between border-b border-slate-700/50 pb-2">
+                    <span class="text-slate-400">Key Derivation (KDF)</span>
+                    <span class="text-white">{{ crypto.get('kdf', 'PBKDF2HMAC') }}</span>
+                </div>
+                <div class="flex justify-between border-b border-slate-700/50 pb-2">
+                    <span class="text-slate-400">Iterations</span>
+                    <span class="text-white">{{ crypto.get('iterations', '100,000') }}</span>
+                </div>
+                <div class="flex justify-between border-b border-slate-700/50 pb-2">
+                    <span class="text-slate-400">Mode of Operation</span>
+                    <span class="text-white">CBC (Cipher Block Chaining)</span>
+                </div>
+                <div class="flex justify-between border-b border-slate-700/50 pb-2">
+                    <span class="text-slate-400">Integrity Check</span>
+                    <span class="text-green-400">HMAC-SHA256 (EtM)</span>
+                </div>
+                <div class="grid grid-cols-2 gap-4 pt-2">
+                    <div class="bg-slate-950 p-2 rounded text-center">
+                        <span class="block text-slate-500 text-xs">IV Length</span>
+                        <span class="text-blue-400 font-bold">{{ crypto.get('iv_length', 16) }} bytes</span>
+                    </div>
+                    <div class="bg-slate-950 p-2 rounded text-center">
+                        <span class="block text-slate-500 text-xs">Salt Length</span>
+                        <span class="text-blue-400 font-bold">{{ crypto.get('salt_length', 16) }} bytes</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Decryption Simulator (Mentor Tool) -->
+    <div class="bg-slate-900/50 backdrop-blur border border-pink-500/30 rounded-xl p-6">
+        <h3 class="text-xl font-bold text-white mb-4 flex items-center">
+            <i class="fas fa-microchip text-pink-400 mr-2"></i> Decryption Simulator
+        </h3>
+        <p class="text-slate-400 text-sm mb-4">
+            Verify the cryptographic integrity mechanism. Entering the wrong password will cause the HMAC-SHA256
+            signature verification to fail immediately.
+        </p>
+        <div class="flex gap-4 items-end">
+            <div class="flex-grow">
+                <label class="block text-xs text-slate-500 mb-1">TEST PASSWORD</label>
+                <input type="password" id="test-password"
+                    class="w-full bg-slate-950 border border-slate-700 rounded p-2 text-white focus:border-pink-500 focus:outline-none placeholder-slate-800"
+                    placeholder="Enter password to test...">
+            </div>
+            <button onclick="testDecryption()"
+                class="px-6 py-2 bg-pink-900/40 hover:bg-pink-900/60 border border-pink-500/50 rounded text-pink-400 font-bold transition-all">
+                RUN TEST
+            </button>
+        </div>
+        <div id="test-result" class="mt-4 p-3 rounded hidden border">
+            <!-- Result injected here -->
+        </div>
+    </div>
+
+    <!-- Ciphertext Preview -->
+    <div class="bg-slate-900/50 backdrop-blur border border-purple-500/30 rounded-xl p-6">
+        <h3 class="text-xl font-bold text-white mb-4 flex items-center">
+            <i class="fas fa-eye-slash text-purple-400 mr-2"></i> Ciphertext Hex Preview (First 64 Bytes)
+        </h3>
+        <p class="text-slate-400 text-sm mb-3">
+            This is the raw output from the encryption engine. It should appear entirely random (high entropy).
+            Patterns would indicate a cryptographic failure.
+        </p>
+        <div
+            class="bg-black/80 p-4 rounded-lg font-mono text-xs text-purple-300 break-all leading-relaxed tracking-wider border border-purple-900/50 shadow-inner">
+            {{ crypto.get('ciphertext_preview', 'NO DATA') }}... <span class="text-slate-600">[truncated]</span>
+        </div>
+    </div>
+
+    <!-- Audit Log -->
+    <div class="bg-slate-900/50 backdrop-blur border border-amber-500/30 rounded-xl p-6">
+        <h3 class="text-xl font-bold text-white mb-4 flex items-center">
+            <i class="fas fa-history text-amber-400 mr-2"></i> Chain of Custody (Audit Log)
+        </h3>
+        <div class="relative pl-4 border-l-2 border-slate-700 space-y-6" id="audit-log-container">
+            <!-- Logs injected via JS -->
+            <div class="flex items-center text-slate-500 animate-pulse">
+                <i class="fas fa-circle-notch fa-spin mr-2"></i> Loading immutable logs...
+            </div>
+        </div>
+    </div>
+
+</div>
+
+<!-- PDF Generation Library -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+
+<script>
+    const fileId = "{{ file_id }}";
+
+    // Fetch Logs
+    async function loadLogs() {
+        const container = document.getElementById('audit-log-container');
+        try {
+            const response = await fetch(`/audit-log/${fileId}`);
+            const logs = await response.json();
+
+            container.innerHTML = '';
+
+            if (logs.length === 0) {
+                container.innerHTML = '<p class="text-slate-500 italic">No activity recorded yet.</p>';
+                return;
+            }
+
+            logs.reverse().forEach(log => {
+                let color = 'bg-slate-700';
+                let icon = 'fa-info';
+
+                if (log.type === 'file_created') { color = 'bg-green-500'; icon = 'fa-upload'; }
+                if (log.type.includes('fail')) { color = 'bg-red-500'; icon = 'fa-exclamation-triangle'; }
+                if (log.type === 'decryption_success') { color = 'bg-blue-500'; icon = 'fa-unlock'; }
+                if (log.type === 'destruction') { color = 'bg-red-600'; icon = 'fa-bomb'; }
+
+                const item = document.createElement('div');
+                item.className = 'relative pl-6';
+                item.innerHTML = `
+                    <div class="absolute -left-[21px] top-1 w-10 h-10 ${color} rounded-full flex items-center justify-center border-4 border-slate-900 z-10">
+                        <i class="fas ${icon} text-white text-xs"></i>
+                    </div>
+                    <div class="flex flex-col sm:flex-row sm:justify-between sm:items-start">
+                        <div>
+                            <span class="text-white font-bold block">${log.type.replace('_', ' ').toUpperCase()}</span>
+                            <span class="text-slate-400 text-sm">${log.reason}</span>
+                            ${log.receiver_email ? `<span class="text-cyan-600 text-xs block mt-1"><i class="fas fa-user mr-1"></i>${log.receiver_email}</span>` : ''}
+                        </div>
+                        <span class="text-slate-500 text-xs font-mono mt-1 sm:mt-0">${new Date(log.timestamp).toLocaleString()}</span>
+                    </div>
+                `;
+                container.appendChild(item);
+            });
+
+        } catch (e) {
+            container.innerHTML = '<p class="text-red-400">Failed to load audit trail.</p>';
+        }
+    }
+
+    // PDF Export
+    function downloadReport() {
+        const element = document.querySelector('.max-w-6xl');
+        const opt = {
+            margin: 0.5,
+            filename: `Encryption_Proof_${fileId.substring(0, 8)}.pdf`,
+            image: { type: 'jpeg', quality: 0.98 },
+            html2canvas: { scale: 2, backgroundColor: '#0f172a' },
+            jsPDF: { unit: 'in', format: 'letter', orientation: 'portrait' }
+        };
+        html2pdf().set(opt).from(element).save();
+    }
+
+    // Decryption Test
+    async function testDecryption() {
+        const password = document.getElementById('test-password').value;
+        const resultDiv = document.getElementById('test-result');
+        const csrfToken = document.querySelector('meta[name="csrf-token"]').content;
+
+        if (!password) {
+            alert("Please enter a password to test.");
+            return;
+        }
+
+        try {
+            const response = await fetch(`/test-decryption/${fileId}`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': csrfToken
+                },
+                body: JSON.stringify({ password: password })
+            });
+            const data = await response.json();
+
+            resultDiv.classList.remove('hidden', 'bg-red-900/20', 'bg-green-900/20', 'bg-amber-900/20');
+            resultDiv.innerHTML = '';
+
+            if (data.status === 'success') {
+                resultDiv.classList.add('bg-green-900/20', 'border-green-500/50', 'text-green-400');
+                resultDiv.innerHTML = '<i class="fas fa-check-circle mr-2"></i><strong>SUCCESS:</strong> Password correct and HMAC signature verified.';
+            } else if (data.status === 'integrity_fail') {
+                resultDiv.classList.add('bg-amber-900/20', 'border-amber-500/50', 'text-amber-400');
+                resultDiv.innerHTML = '<i class="fas fa-fingerprint mr-2"></i><strong>INTEGRITY FAILURE:</strong> HMAC signature mismatch. This proves the file is secure against tampering or incorrect passwords.';
+            } else {
+                resultDiv.classList.add('bg-red-900/20', 'border-red-500/50', 'text-red-400');
+                resultDiv.innerHTML = `<i class="fas fa-times-circle mr-2"></i><strong>FAIL:</strong> ${data.message}`;
+            }
+
+            // Refresh logs to show the test attempt
+            loadLogs();
+
+        } catch (e) {
+            resultDiv.classList.remove('hidden');
+            resultDiv.classList.add('bg-red-900/20', 'border-red-500/50', 'text-red-400');
+            resultDiv.innerHTML = 'System error executing test.';
+        }
+    }
+
+    // Init
+    loadLogs();
+</script>
+{% endblock %}

@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <title>Camera Test</title>
+  <style>
+    body { font-family: system-ui, -apple-system, Segoe UI, Arial; background:#0b0b14; color:#e5e7eb; margin:0; min-height:100vh; display:flex; align-items:center; justify-content:center; }
+    .card { background:#0f1220; border:1px solid rgba(65,105,225,.25); border-radius:16px; padding:24px; width:720px; max-width:92vw; }
+    h1 { margin:0 0 12px 0; font-size:22px; }
+    .row { display:flex; gap:16px; align-items:center; }
+    video { width: 360px; height: 270px; background:#111; border-radius:8px; border:1px solid rgba(65,105,225,.25); }
+    .log { white-space:pre-wrap; font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; background:#0b0d16; border:1px solid rgba(65,105,225,.2); padding:10px; border-radius:8px; min-height:80px; }
+    button { background: linear-gradient(45deg, #4169E1, #8A2BE2); color:#fff; border:none; padding:10px 14px; border-radius:10px; cursor:pointer; }
+    button.secondary { background:#1f2739; }
+    a { color:#93c5fd; }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <h1>Camera Test</h1>
+    <p>Use this page to verify that your browser can access the camera on this origin before decrypting.</p>
+    <div class="row" style="margin:12px 0;">
+      <button id="start">Start</button>
+      <button id="stop" class="secondary">Stop</button>
+      <button id="useAndContinue" class="secondary">Use this camera and continue →</button>
+      <a href="/decrypt" style="margin-left:auto;">← Back to Decrypt</a>
+    </div>
+    <div class="row">
+      <video id="preview" autoplay playsinline muted></video>
+      <div class="log" id="log"></div>
+    </div>
+  </div>
+  <script>
+    const v = document.getElementById('preview');
+    const log = document.getElementById('log');
+    const startBtn = document.getElementById('start');
+    const stopBtn = document.getElementById('stop');
+    let stream = null;
+
+    function append(msg){ log.textContent += (msg + '\n'); }
+    function clearLog(){ log.textContent = ''; }
+
+    async function start(){
+      clearLog();
+      try {
+        append('Requesting getUserMedia({ video: true }) ...');
+        stream = await navigator.mediaDevices.getUserMedia({ video: true, audio:false });
+        v.srcObject = stream;
+        append('Success: stream started.');
+        const devices = await navigator.mediaDevices.enumerateDevices();
+        const cams = devices.filter(d=>d.kind==='videoinput');
+        append('Cameras found: ' + cams.length + (cams.length? ('\n- ' + cams.map(c=> (c.label||'(no label)')).join('\n- ')) : ''));
+      } catch(e){
+        append('Error: ' + (e.name || e.message));
+        append('Hints: If NotAllowedError -> allow this site in the address bar. If NotReadableError -> close Teams/Zoom/Camera app. If NotFoundError -> no camera detected.');
+      }
+    }
+
+    function stop(){
+      if (stream){ stream.getTracks().forEach(t=>t.stop()); stream=null; append('Stream stopped.'); }
+      v.srcObject = null;
+    }
+
+    startBtn.addEventListener('click', start);
+    stopBtn.addEventListener('click', stop);
+    document.getElementById('useAndContinue').addEventListener('click', async () => {
+      try {
+        clearLog(); append('Requesting camera for decrypt gate...');
+        if (!stream) {
+          stream = await navigator.mediaDevices.getUserMedia({ video:true, audio:false });
+          v.srcObject = stream;
+        }
+        await fetch('/camera-ok', { method: 'POST' });
+        append('Gate set. Redirecting to /decrypt ...');
+        // Keep stream alive until navigation for stability
+        setTimeout(()=>{ window.location.href = '/decrypt'; }, 300);
+      } catch(e){ append('Error: ' + (e.name||e.message)); }
+    });
+  </script>
+</body>
+</html>

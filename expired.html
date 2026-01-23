@@ -1,0 +1,9 @@
+{% extends "layout.html" %}
+{% block title %}Expired{% endblock %}
+{% block content %}
+<div class="cyber-card" style="text-align: center; border-color: var(--error);">
+    <h1 style="color:var(--error); margin-bottom:1rem;">[ LINK_EXPIRED ]</h1>
+    <p>The secure link for this file has expired or been destroyed.</p>
+    <a href="{{ url_for('home') }}" class="btn" style="margin-top:2rem;">Return Home</a>
+</div>
+{% endblock %}

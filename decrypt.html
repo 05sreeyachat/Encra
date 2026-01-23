@@ -1,0 +1,246 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Decrypt File</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <style>
+        body {
+            font-family: 'Segoe UI', Arial, sans-serif;
+            margin: 0;
+            min-height: 100vh;
+            background: linear-gradient(-45deg, #000000, #1a0b2e, #0b2e1a, #0b1a2e);
+            background-size: 400% 400%;
+            animation: gradient 15s ease infinite;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+            color: #ffffff;
+        }
+
+        @keyframes gradient {
+            0% { background-position: 0% 50%; }
+            50% { background-position: 100% 50%; }
+            100% { background-position: 0% 50%; }
+        }
+
+        .container {
+            background: rgba(8, 8, 15, 0.98);
+            padding: 40px;
+            border-radius: 20px;
+            box-shadow: 0 15px 35px rgba(0, 0, 0, 0.8);
+            max-width: 520px;
+            width: 100%;
+            text-align: center;
+            border: 1px solid rgba(65, 105, 225, 0.25);
+        }
+
+        h1 {
+            font-size: 2.2em;
+            margin: 0 0 20px 0;
+            background: linear-gradient(45deg, #4169E1, #ff69b4);
+            -webkit-background-clip: text;
+            background-clip: text;
+            color: transparent;
+        }
+
+        form {
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+            margin: 20px 0 10px 0;
+        }
+
+        input[type="file"],
+        input[type="password"] {
+            width: 100%;
+            padding: 12px 14px;
+            background: rgba(65, 105, 225, 0.08);
+            border: 1px solid rgba(65, 105, 225, 0.3);
+            border-radius: 10px;
+            color: #ffffff;
+            outline: none;
+        }
+
+        input[type="password"]::placeholder {
+            color: #a8b2d1;
+        }
+
+        button[type="submit"] {
+            background: linear-gradient(45deg, #4169E1, #8A2BE2);
+            color: white;
+            padding: 12px 18px;
+            border-radius: 12px;
+            font-size: 1.05em;
+            text-decoration: none;
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+            border: none;
+            cursor: pointer;
+            margin-top: 5px;
+        }
+
+        button[type="submit"]:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(65, 105, 225, 0.3);
+        }
+
+        .alert {
+            background: rgba(255, 68, 68, 0.12);
+            border: 1px solid rgba(255, 68, 68, 0.4);
+            color: #ff8a8a;
+            padding: 10px 12px;
+            border-radius: 8px;
+            margin-top: 10px;
+            text-align: left;
+        }
+
+        .back-link {
+            color: #4169E1;
+            text-decoration: none;
+            display: inline-block;
+            margin-top: 18px;
+            font-size: 1.05em;
+            transition: color 0.3s ease;
+            padding: 8px 14px;
+            border-radius: 8px;
+            background: rgba(65, 105, 225, 0.1);
+        }
+
+        .back-link:hover {
+            color: #8A2BE2;
+            background: rgba(65, 105, 225, 0.2);
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <h1>Decrypt File</h1>
+        <div id="cameraPermissionStep" style="display: block;">
+            <p style="color: #a8b2d1; margin-bottom: 20px;">
+                🔒 Camera access is required before you can decrypt any files.<br>
+                This ensures security monitoring throughout the decryption process.
+            </p>
+            <button id="requestCameraBtn" style="background: linear-gradient(45deg, #4169E1, #8A2BE2); color: white; padding: 12px 18px; border-radius: 12px; font-size: 1.05em; text-decoration: none; transition: transform 0.3s ease, box-shadow 0.3s ease; border: none; cursor: pointer; margin-top: 5px;">
+                Grant Camera Access to Continue
+            </button>
+            <div id="cameraStatus" style="margin-top: 15px; padding: 10px; border-radius: 8px; display: none;"></div>
+        </div>
+        
+        <form id="decryptForm" action="{{ url_for('decrypt_file') }}" method="POST" enctype="multipart/form-data" style="display: none;">
+            <div style="color: #4ade80; font-size: 0.9em; margin-bottom: 15px; padding: 10px; background: rgba(34, 197, 94, 0.1); border: 1px solid rgba(34, 197, 94, 0.3); border-radius: 8px;">
+                ✓ Camera access granted. You can now upload your encrypted file.
+            </div>
+            <input type="file" name="file" required accept=".enc">
+            <div style="color: #a8b2d1; font-size: 0.9em; margin-bottom: 10px;">
+                Upload your encrypted .enc file
+            </div>
+            <input type="password" name="password" placeholder="Enter password" required>
+            <input type="hidden" name="camera_ok" id="camera_ok" value="0">
+            <button type="submit">Decrypt File</button>
+        </form>
+        {% with messages = get_flashed_messages() %}
+            {% if messages %}
+                {% for message in messages %}
+                    <div class="alert">{{ message }}</div>
+                {% endfor %}
+            {% endif %}
+        {% endwith %}
+        <a href="{{ url_for('home') }}" class="back-link">← Back to Home</a>
+    </div>
+    <script>
+        (function() {
+            const cameraStep = document.getElementById('cameraPermissionStep');
+            const decryptForm = document.getElementById('decryptForm');
+            const requestBtn = document.getElementById('requestCameraBtn');
+            const cameraStatus = document.getElementById('cameraStatus');
+            const cameraOkInput = document.getElementById('camera_ok');
+            
+            // Manual gate: user must click the button to request camera
+            cameraOkInput.value = '0';
+            
+            async function requestCamera(){
+                if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+                    throw new Error('Camera not available on this device');
+                }
+                // Simple reliable constraint to ensure the browser shows the prompt
+                return navigator.mediaDevices.getUserMedia({ video: true, audio: false });
+            }
+
+            // Minimal, fast prompt UX
+            function showWaiting() {
+                cameraStatus.style.display = 'block';
+                cameraStatus.style.background = 'rgba(65,105,225,0.12)';
+                cameraStatus.style.border = '1px solid rgba(65,105,225,0.4)';
+                cameraStatus.style.color = '#93c5fd';
+                cameraStatus.textContent = 'Waiting for camera permission…';
+            }
+
+            requestBtn.addEventListener('click', async function() {
+                try {
+                    requestBtn.textContent = 'Requesting...';
+                    requestBtn.disabled = true;
+                    showWaiting();
+                    // Single quick prompt
+                    let stream = await requestCamera();
+                    // Keep stream alive to prevent AbortError; stop later on submit/unload
+                    const holdVideo = document.createElement('video');
+                    holdVideo.autoplay = true; holdVideo.playsInline = true; holdVideo.muted = true;
+                    holdVideo.style.display = 'none';
+                    document.body.appendChild(holdVideo);
+                    holdVideo.srcObject = stream;
+                    // Success UI
+                    cameraStatus.style.display = 'block';
+                    cameraStatus.style.background = 'rgba(34, 197, 94, 0.12)';
+                    cameraStatus.style.border = '1px solid rgba(34, 197, 94, 0.4)';
+                    cameraStatus.style.color = '#4ade80';
+                    cameraStatus.textContent = '✓ Camera access granted';
+                    cameraOkInput.value = '1';
+                    try {
+                        await fetch('/camera-ok', { method: 'POST' });
+                    } catch (e) {
+                        // even if this fails, keep UI but server will re-check and block if missing
+                    }
+                    setTimeout(() => {
+                        cameraStep.style.display = 'none';
+                        decryptForm.style.display = 'block';
+                    }, 800);
+                    // Cleanup on submit / unload
+                    function stopStream(){
+                        try { if (stream) { stream.getTracks().forEach(t=>t.stop()); stream=null; } } catch(_){ }
+                        try { holdVideo.srcObject=null; holdVideo.remove(); } catch(_){ }
+                    }
+                    decryptForm.addEventListener('submit', stopStream, { once: true });
+                    window.addEventListener('beforeunload', stopStream, { once: true });
+                } catch (err) {
+                    // Soft-success for AbortError/NotReadableError (driver quirks). Proceed but warn.
+                    if (err && (err.name === 'AbortError' || err.name === 'NotReadableError')) {
+                        cameraStatus.style.display = 'block';
+                        cameraStatus.style.background = 'rgba(234, 179, 8, 0.15)';
+                        cameraStatus.style.border = '1px solid rgba(234, 179, 8, 0.4)';
+                        cameraStatus.style.color = '#fde047';
+                        cameraStatus.textContent = `⚠ Camera permission accepted but preview failed (${err.name}). Proceeding.`;
+                        cameraOkInput.value = '1';
+                        try { await fetch('/camera-ok', { method: 'POST' }); } catch(_){ }
+                        setTimeout(() => {
+                            cameraStep.style.display = 'none';
+                            decryptForm.style.display = 'block';
+                        }, 300);
+                    } else {
+                        // Permission denied or other error
+                        cameraStatus.style.display = 'block';
+                        cameraStatus.style.background = 'rgba(255, 68, 68, 0.12)';
+                        cameraStatus.style.border = '1px solid rgba(255, 68, 68, 0.4)';
+                        cameraStatus.style.color = '#ff8a8a';
+                        const code = err && (err.name || err.message) ? ` [${err.name || err.message}]` : '';
+                        cameraStatus.textContent = `✗ Camera access failed.${code} Check the address bar for a camera icon and set to Allow.`;
+                        requestBtn.textContent = 'Try Again';
+                        requestBtn.disabled = false;
+                        cameraOkInput.value = '0';
+                    }
+                }
+            });
+        })();
+    </script>
+</body>
+</html>
