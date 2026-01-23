@@ -1,0 +1,14 @@
+flask
+cryptography
+pycryptodome
+qrcode
+Pillow
+requests
+flask-talisman
+flask-limiter
+flask-wtf
+PyPDF2
+python-docx
+openpyxl
+python-pptx
+pyopenssl
