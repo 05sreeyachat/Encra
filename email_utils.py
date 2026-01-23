@@ -1,21 +1,37 @@
 import smtplib
 import os
+import logging
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 from email.mime.image import MIMEImage
+import security_config
 
-# Configuration
-# Ideally these should be loaded from env vars
-EMAIL_ADDRESS = "chatterjeesreeya@gmail.com"
-EMAIL_PASSWORD = "artr blif jkhq givi"
-SMTP_SERVER = "smtp.gmail.com"
-SMTP_PORT = 587
+# Configure Logger for observability
+logger = logging.getLogger(__name__)
+
+def _get_smtp_connection():
+    """Helper to establish a secure SMTP connection with timeout."""
+    if not security_config.is_email_configured():
+        logger.warning("[Email] SMTP not fully configured. Skipping delivery.")
+        return None
+        
+    try:
+        # 10s timeout to prevent hanging the process
+        server = smtplib.SMTP(security_config.SMTP_SERVER, security_config.SMTP_PORT, timeout=10)
+        server.starttls()
+        # Clean the password of spaces (common with Gmail App Passwords)
+        clean_pass = security_config.SMTP_PASS.replace(" ", "")
+        server.login(security_config.SMTP_USER, clean_pass)
+        return server
+    except Exception as e:
+        logger.error(f"[Email] SMTP Connection Failed: {e}")
+        return None
 
 def send_email(to_email: str, subject: str, message: str, html_content: str = None):
-    """Send a standard email."""
+    """Send a standard email. Never crashes the app."""
     try:
         msg = MIMEMultipart('alternative')
-        msg['From'] = f"Secure File System <{EMAIL_ADDRESS}>"
+        msg['From'] = f"Secure File System <{security_config.SMTP_USER}>"
         msg['To'] = to_email
         msg['Subject'] = subject
         
@@ -23,22 +39,24 @@ def send_email(to_email: str, subject: str, message: str, html_content: str = No
         if html_content:
             msg.attach(MIMEText(html_content, 'html', 'utf-8'))
             
-        with smtplib.SMTP(SMTP_SERVER, SMTP_PORT) as server:
-            server.starttls()
-            server.login(EMAIL_ADDRESS, EMAIL_PASSWORD.replace(" ", ""))
+        server = _get_smtp_connection()
+        if not server:
+            return False
+            
+        with server:
             server.send_message(msg)
             
-        print(f"[Email] Sent to {to_email}: {subject}")
+        logger.info(f"[Email] Sent to {to_email}: {subject}")
         return True
     except Exception as e:
-        print(f"[Email] Failed to send to {to_email}: {e}")
+        logger.error(f"[Email] Delivery Error to {to_email}: {e}")
         return False
 
 def send_email_with_qr(to_email: str, subject: str, message_text: str, qr_path: str, url_link: str):
-    """Send email with an embedded QR code image."""
+    """Send email with an embedded QR code image. Never crashes the app."""
     try:
         msg = MIMEMultipart('related')
-        msg['From'] = f"Secure File System <{EMAIL_ADDRESS}>"
+        msg['From'] = f"Secure File System <{security_config.SMTP_USER}>"
         msg['To'] = to_email
         msg['Subject'] = subject
         
@@ -80,26 +98,25 @@ def send_email_with_qr(to_email: str, subject: str, message_text: str, qr_path: 
             img.add_header('Content-Disposition', 'inline', filename='qrcode.png')
             msg.attach(img)
             
-        with smtplib.SMTP(SMTP_SERVER, SMTP_PORT) as server:
-            server.starttls()
-            server.login(EMAIL_ADDRESS, EMAIL_PASSWORD.replace(" ", ""))
+        server = _get_smtp_connection()
+        if not server:
+            return False
+            
+        with server:
             server.send_message(msg)
             
-        print(f"[Email] QR sent to {to_email}")
+        logger.info(f"[Email] QR sent to {to_email}")
         return True
     except Exception as e:
-        print(f"[Email] Failed to send QR to {to_email}: {e}")
-        return False
+        logger.error(f"[Email] QR Delivery Error to {to_email}: {e}")
         return False
 
 def send_alert_email(to_email: str, case_id: str, event_type: str, reason: str, forensics: dict):
-    """
-    Sends a detailed security alert with device and location forensics.
-    """
+    """Sends detailed forensic alert. Never crashes the app."""
     try:
         subject = f"Security Alert: {event_type} - {case_id[:8]}"
         msg = MIMEMultipart('alternative')
-        msg['From'] = f"Secure File System <{EMAIL_ADDRESS}>"
+        msg['From'] = f"Secure File System <{security_config.SMTP_USER}>"
         msg['To'] = to_email
         msg['Subject'] = subject
         
@@ -174,13 +191,15 @@ def send_alert_email(to_email: str, case_id: str, event_type: str, reason: str, 
         """
         msg.attach(MIMEText(html_content, 'html', 'utf-8'))
         
-        with smtplib.SMTP(SMTP_SERVER, SMTP_PORT) as server:
-            server.starttls()
-            server.login(EMAIL_ADDRESS, EMAIL_PASSWORD.replace(" ", ""))
+        server = _get_smtp_connection()
+        if not server:
+            return False
+            
+        with server:
             server.send_message(msg)
             
-        print(f"[Email] Alert sent to {to_email}")
+        logger.info(f"[Email] Alert sent to {to_email}")
         return True
     except Exception as e:
-        print(f"[Email] Failed to send Alert to {to_email}: {e}")
+        logger.error(f"[Email] Alert Delivery Error to {to_email}: {e}")
         return False
