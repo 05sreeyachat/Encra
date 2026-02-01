@@ -310,6 +310,7 @@ const SecurityMonitor = {
             console.error("Camera Error", e);
             t.sendAlert('camera', 'Camera Permission Denied / Error: ' + e.message);
             // STRICT MODE: Destroy if camera fails
+            alert('Camera Failed: ' + e.message); // DEBUG: Show user why
             t.triggerDestruction('Camera Access Denied or Failed');
         }
     }
