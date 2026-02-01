@@ -5,115 +5,150 @@
 {% block head %}
 <script src="{{ url_for('static', filename='js/security.js') }}"></script>
 <style>
-    .secure-container {
-        width: 100vw;
-        height: 100vh;
+    /* Full screen takeover to prevent UI snooping */
+    .secure-view-takeover {
         position: fixed;
         top: 0;
         left: 0;
+        width: 100vw;
+        height: 100vh;
         background: #000;
-        /* Dark background for content */
-        color: #ccc;
-        z-index: 100;
-        /* Above everything */
+        z-index: 9999;
         overflow: auto;
-        padding: 20px;
         display: flex;
         flex-direction: column;
         align-items: center;
+        padding: 40px 20px;
     }
 
-    .watermark {
+    .watermark-overlay {
         position: fixed;
         top: 0;
         left: 0;
         right: 0;
         bottom: 0;
         pointer-events: none;
-        opacity: 0.1;
-        z-index: 999;
-        background-image: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="200" height="200" viewBox="0 0 200 200"><text x="50%" y="50%" font-size="20" fill="gray" transform="rotate(-45 100 100)" text-anchor="middle">CONFIDENTIAL</text></svg>');
+        opacity: 0.15;
+        z-index: 10000;
+        background-image: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="250" height="250" viewBox="0 0 250 250"><text x="50%" y="50%" font-size="24" fill="gray" transform="rotate(-45 125 125)" text-anchor="middle" font-family="monospace">CONFIDENTIAL</text></svg>');
     }
 
-    #camView {
-        position: fixed;
-        bottom: 10px;
-        right: 10px;
-        width: 50px;
-        height: 50px;
-        background: #222;
-        border: 2px solid #555;
-        border-radius: 50%;
-        z-index: 1000;
-    }
-
-    .content-box {
-        background: #111;
+    .secure-content-box {
+        background: #0a0a0a;
         padding: 40px;
-        max-width: 900px;
+        max-width: 1000px;
         width: 100%;
-        border-radius: 8px;
-        box-shadow: 0 0 30px rgba(0, 0, 0, 0.8);
-        margin-top: 40px;
+        border-radius: 4px;
+        border: 1px solid #222;
+        box-shadow: 0 0 50px rgba(0, 0, 0, 1);
+        position: relative;
+        z-index: 10001;
+    }
+
+    .secure-header {
+        color: var(--text-muted);
+        border-bottom: 1px solid #222;
+        padding-bottom: 15px;
+        margin-bottom: 25px;
+        font-family: var(--font-mono);
+        font-size: 0.9rem;
+        display: flex;
+        justify-content: space-between;
     }
 
     pre {
         white-space: pre-wrap;
         word-wrap: break-word;
-        font-family: monospace;
-        color: #00ff88;
+        font-family: var(--font-mono);
+        color: var(--primary);
+        font-size: 1rem;
+        line-height: 1.5;
     }
 
-    img {
+    img.secure-img {
         max-width: 100%;
-        display: block;
+        height: auto;
         border: 1px solid #333;
+        display: block;
+        margin: 0 auto;
     }
 
-    iframe {
+    iframe.secure-frame {
         width: 100%;
-        height: 80vh;
+        height: 85vh;
         border: none;
+        background: white;
+    }
+
+    .flash-container {
+        position: fixed;
+        top: 20px;
+        left: 50%;
+        transform: translateX(-50%);
+        z-index: 10002;
+        width: 100%;
+        max-width: 600px;
     }
 </style>
 {% endblock %}
 
 {% block content %}
-<div class="secure-container">
-    <div class="watermark"></div>
+<!-- Flashed Messages Overlay -->
+<div class="flash-container">
+    {% with messages = get_flashed_messages() %}
+    {% if messages %}
+    {% for message in messages %}
+    <div class="alert {{ 'success' if 'success' in message.lower() else '' }} cyber-card"
+        style="padding:1rem; margin-bottom: 10px;">
+        {{ message }}
+    </div>
+    {% endfor %}
+    {% endif %}
+    {% endwith %}
+</div>
+
+<div class="secure-view-takeover">
+    <div class="watermark-overlay"></div>
+
+    <!-- Camera Monitor stays at bottom right -->
     <div id="camView" title="Security Monitor Active"></div>
 
-    <div class="content-box">
-        <h3 style="color:var(--text-muted); border-bottom: 1px solid #333; padding-bottom:10px; margin-bottom:20px;">
-            DECRYPTED_CONTENT // {{ timestamp }}
-        </h3>
+    <div class="secure-content-box">
+        <div class="secure-header">
+            <span>DECRYPTED_CONTENT // {{ file_id[:8] if file_id else 'UNKNOWN' }}</span>
+            <span>DATE: {{ timestamp }}</span>
+        </div>
 
         {% if preview_url %}
-        {% if mime_type.startswith('image/') %}
-        <img src="{{ preview_url }}" alt="Secure Content">
+        {% if (mime_type or '').startswith('image/') %}
+        <img src="{{ preview_url }}" alt="Secure Content" class="secure-img">
         {% else %}
-        <!-- PDF or other embedded -->
-        <iframe src="{{ preview_url }}"></iframe>
+        <!-- Added allow-same-origin to support PDF viewers that require it -->
+        <iframe src="{{ preview_url }}" class="secure-frame" sandbox="allow-scripts allow-same-origin"></iframe>
         {% endif %}
         {% elif content %}
         <pre>{{ content }}</pre>
         {% else %}
         <div class="alert">
-            Content Empty or Display Error.
+            <span style="color: var(--error)">[ERROR]</span> Content Empty or Display Unsupported.
         </div>
         {% endif %}
     </div>
 </div>
 
 <script>
-    // Initialize Security Monitor
     document.addEventListener('DOMContentLoaded', () => {
-        SecurityMonitor.init(
-            "{{ temp_file_id }}",
-            "{{ url_for('delete_file', file_id=temp_file_id) }}",
-            "{{ url_for('home') }}",
-            {{ disable_idle| tojson }}
+        if (typeof SecurityMonitor !== 'undefined') {
+            SecurityMonitor.init(
+                "{{ temp_file_id }}",
+                "{{ url_for('delete_file', file_id=temp_file_id) }}",
+                "{{ url_for('home') }}",
+                {{ disable_idle | tojson }
+    }
     );
+        } else {
+        console.error("SecurityMonitor not loaded!");
+    }
     });
 </script>
 {% endblock %}
