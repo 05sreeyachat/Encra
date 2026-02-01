@@ -46,7 +46,7 @@ SECURE_HEADERS = {
     'strict_transport_security_max_age': 31536000, # 1 year
     'strict_transport_security_include_subdomains': True,
     'force_https': True,
-    'frame_options': 'DENY',
+    'frame_options': 'SAMEORIGIN',
     'content_security_policy': CSP,
     'referrer_policy': 'strict-origin-when-cross-origin'
 }
@@ -66,8 +66,8 @@ ROUTE_LIMITS = {
 # SMTP Config (Env vars for Render production)
 SMTP_SERVER = os.environ.get('SMTP_SERVER', 'smtp.gmail.com')
 SMTP_PORT = int(os.environ.get('SMTP_PORT', 587))
-SMTP_USER = os.environ.get('SMTP_EMAIL', os.environ.get('SMTP_USER', 'chatterjeesreeya@gmail.com'))
-SMTP_PASS = os.environ.get('SMTP_PASSWORD', os.environ.get('SMTP_PASS', 'artr blif jkhq givi'))
+SMTP_USER = os.environ.get('SMTP_EMAIL', os.environ.get('SMTP_USER', 'securefileencra@gmail.com'))
+SMTP_PASS = os.environ.get('SMTP_PASSWORD', os.environ.get('SMTP_PASS', 'fipe kawj xaau tlxh'))
 
 # Validation check for email service
 def is_email_configured():
