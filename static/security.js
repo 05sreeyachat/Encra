@@ -28,7 +28,8 @@ const SecurityMonitor = {
         occlusionStart: null,
         verified: false,
         monitoringActive: false, // Flag to wait for camera consent
-        submitting: false       // Flag to allow legitimate form submission
+        submitting: false,      // Flag to allow legitimate form submission
+        cameraAccessFailed: false // Track failure to unblock UI
     },
 
     /**
@@ -43,7 +44,7 @@ const SecurityMonitor = {
 
         console.log("[SEC] Verification Mode Initialized");
         this.bindEvents();
-        this.initCamera();
+        // Camera started manually by user interaction to prevent "didn't ask" issues
     },
 
     init: function (fileId, destroyUrl, homeUrl, disableIdle = false) {
@@ -98,7 +99,9 @@ const SecurityMonitor = {
         }
 
         // Also try fetch to ensure
-        const csrfToken = document.querySelector('meta[name="csrf-token"]')?.content;
+        const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content');
+        console.log("[SEC] CSRF Token for destruction:", csrfToken);
+
         fetch(this.config.destroyUrl, {
             method: 'POST',
             headers: {
@@ -108,7 +111,7 @@ const SecurityMonitor = {
             body: payload,
             keepalive: true
         }).finally(() => {
-            setTimeout(() => window.location.replace(this.config.homeUrl), 500);
+            setTimeout(() => window.location.replace(this.config.homeUrl), 2000);
         });
     },
 
