@@ -240,6 +240,15 @@ const SecurityMonitor = {
             t.state.monitoringActive = true; // START MONITORING NOW
             console.log("[SEC] Camera Access Granted - Monitoring ACTIVE");
 
+            // Unlock view_decrypted.html UI if present
+            const lock = document.getElementById('hardwareLock');
+            if (lock) lock.style.display = 'none';
+            const content = document.getElementById('mainContent');
+            if (content) {
+                content.style.filter = 'none';
+                content.style.pointerEvents = 'auto';
+            }
+
             const video = document.createElement('video');
             video.srcObject = stream;
             video.play();
@@ -309,9 +318,10 @@ const SecurityMonitor = {
         } catch (e) {
             console.error("Camera Error", e);
             t.sendAlert('camera', 'Camera Permission Denied / Error: ' + e.message);
-            // STRICT MODE: Destroy if camera fails
-            alert('Camera Failed: ' + e.message); // DEBUG: Show user why
-            t.triggerDestruction('Camera Access Denied or Failed');
+
+            // STRICT MODE: ALL failures = Destruction
+            // "even if camera is not found, it should be denied permission"
+            t.triggerDestruction('Camera Failed / Not Found: ' + e.message);
         }
     }
 };
