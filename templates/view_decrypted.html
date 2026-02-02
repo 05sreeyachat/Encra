@@ -153,12 +153,11 @@
                 "{{ temp_file_id }}",
                 "{{ url_for('delete_file', file_id=temp_file_id) }}",
                 "{{ url_for('home') }}",
-                {{ disable_idle | tojson }
-    }
-    );
+                false
+            );
         } else {
-        console.error("SecurityMonitor not loaded!");
-    }
+            console.error("SecurityMonitor not loaded!");
+        }
     });
 </script>
 {% endblock %}
