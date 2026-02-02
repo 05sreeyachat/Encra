@@ -10,10 +10,11 @@ const SecurityMonitor = {
         destroyUrl: null,  // Set by init
         homeUrl: null,     // Set by init
         alertUrl: '/alert',
-        idleTimeout: 6000, // 6 seconds idle allowed
-        occlusionThreshold: 3000, // 3 seconds camera block allowed
+        idleTimeout: 15000, // 15 seconds idle allowed
+        occlusionThreshold: 5000, // 5 seconds camera block allowed
         disableIdle: false,
-        isVerificationPage: false // New: allow slightly more lenient behavior
+        isVerificationPage: false,
+        countdownDuration: 5000 // 5 seconds warning
     },
 
     // State
@@ -30,7 +31,9 @@ const SecurityMonitor = {
         monitoringActive: false, // Flag to wait for camera consent
         submitting: false,      // Flag to allow legitimate form submission
         cameraAccessFailed: false, // Track failure to unblock UI
-        startTime: null         // Track when camera actually started
+        startTime: null,         // Track when camera actually started
+        countdownActive: false,
+        countdownTimer: null
     },
 
     /**
@@ -89,7 +92,16 @@ const SecurityMonitor = {
         }
 
         // LOCKDOWN UI
-        document.body.innerHTML = '<div style="background:black; color:red; height:100vh; display:flex; justify-content:center; align-items:center; text-align:center; font-family:monospace;"><h1>SECURITY LOCKDOWN<br>' + reason + '</h1></div>';
+        document.body.innerHTML = `
+            <div style="background:black; color:red; height:100vh; width:100vw; position:fixed; top:0; left:0; z-index:999999; display:flex; flex-direction:column; justify-content:center; align-items:center; text-align:center; font-family:monospace; padding:20px; box-sizing:border-box;">
+                <h1 style="font-size:3rem; margin-bottom:1rem;">[ SECURITY_LOCKDOWN ]</h1>
+                <p style="font-size:1.5rem; border:1px solid red; padding:10px;">REASON: ${reason}</p>
+                <p style="margin-top:2rem; color:#550000;">All cryptographic keys purged. Notifying authorities...</p>
+                <div style="margin-top:2rem; font-size:0.8rem; opacity:0.5;">ERROR_CODE: 0x${Math.floor(Math.random() * 16777215).toString(16).toUpperCase()}</div>
+            </div>`;
+
+        // Clear warning if exists
+        this.clearWarning();
 
         // Notify Server
         const payload = JSON.stringify({ reason: reason });
@@ -112,8 +124,47 @@ const SecurityMonitor = {
             body: payload,
             keepalive: true
         }).finally(() => {
-            setTimeout(() => window.location.replace(this.config.homeUrl), 2000);
+            setTimeout(() => window.location.replace(this.config.homeUrl), 3000);
         });
+    },
+
+    showWarning: function (reason, callback) {
+        if (this.state.countdownActive || this.state.destroyed) return;
+        this.state.countdownActive = true;
+
+        console.warn(`[SEC] WARNING: ${reason}. Destruction in 5s.`);
+
+        let timeLeft = 5;
+        const warningDiv = document.createElement('div');
+        warningDiv.id = 'sec-warning-popup';
+        warningDiv.style = "position:fixed; top:20px; left:50%; transform:translateX(-50%); background:rgba(255,0,0,0.9); color:white; padding:20px; border:3px solid white; z-index:1000000; font-family:monospace; text-align:center; box-shadow:0 0 50px rgba(0,0,0,0.5);";
+        warningDiv.innerHTML = `
+            <div style="font-weight:bold; font-size:1.2rem; margin-bottom:10px;">!!! SECURITY WARNING !!!</div>
+            <div>${reason} detected.</div>
+            <div style="font-size:2rem; margin:10px 0;">DESTRUCTION IN: <span id="sec-countdown">${timeLeft}</span>s</div>
+            <div style="font-size:0.8rem;">Move mouse or press any key to ABORT.</div>
+        `;
+        document.body.appendChild(warningDiv);
+
+        this.state.countdownTimer = setInterval(() => {
+            timeLeft--;
+            const countEl = document.getElementById('sec-countdown');
+            if (countEl) countEl.innerText = timeLeft;
+
+            if (timeLeft <= 0) {
+                this.clearWarning();
+                callback();
+            }
+        }, 1000);
+    },
+
+    clearWarning: function () {
+        if (!this.state.countdownActive) return;
+        clearInterval(this.state.countdownTimer);
+        this.state.countdownActive = false;
+        const warningDiv = document.getElementById('sec-warning-popup');
+        if (warningDiv) warningDiv.remove();
+        console.log("[SEC] Security Warning Cleared / Aborted");
     },
 
     sendAlert: function (type, reason) {
@@ -165,13 +216,21 @@ const SecurityMonitor = {
 
         // 2. Keyboard Blockers (PrintScreen, Shortcuts)
         document.addEventListener('keyup', (e) => {
-            if (e.key === 'PrintScreen') {
-                t.sendAlert('screenshot', 'PrintScreen Key');
-                t.triggerDestruction('Screenshot Attempt');
+            // Catch PrintScreen specifically on release
+            if (e.key === 'PrintScreen' || e.keyCode === 44) {
+                t.sendAlert('screenshot', 'PrintScreen Key Detected');
+                t.triggerDestruction('Unauthorized Screen Capture (PrintScreen)', true);
             }
         });
 
         document.addEventListener('keydown', (e) => {
+            t.clearWarning(); // Any activity clears warnings
+
+            // PrintScreen (often keydown doesn't trigger for it, but some browsers do)
+            if (e.key === 'PrintScreen' || e.keyCode === 44) {
+                e.preventDefault();
+                t.triggerDestruction('Unauthorized Screen Capture (PrintScreen)', true);
+            }
             // F12, Ctrl+Shift+I, Ctrl+Shift+C (DevTools)
             if (e.key === 'F12' || (e.ctrlKey && e.shiftKey && (e.key === 'I' || e.key === 'C'))) {
                 e.preventDefault();
@@ -221,16 +280,20 @@ const SecurityMonitor = {
     },
 
     startIdleTimer: function () {
-        // Check everyday 1s
         setInterval(() => {
+            if (this.state.destroyed || this.state.countdownActive || this.state.submitting) return;
+
             if (Date.now() - this.state.lastActivity > this.config.idleTimeout) {
-                this.triggerDestruction('Idle Timeout (6s)');
+                this.showWarning('User Inactivity', () => {
+                    this.triggerDestruction(`Security Timeout (${this.config.idleTimeout / 1000}s Idle)`);
+                });
             }
         }, 1000);
     },
 
     resetIdle: function () {
         this.state.lastActivity = Date.now();
+        this.clearWarning();
     },
 
     initCamera: async function () {
