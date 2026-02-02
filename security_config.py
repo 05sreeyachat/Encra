@@ -3,6 +3,7 @@ import os
 # Security Header Config (Talisman)
 CSP = {
     'default-src': '\'self\'',
+    'script-src': [
         '\'self\'',
         '\'unsafe-inline\'',
         '\'unsafe-eval\'',
