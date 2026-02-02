@@ -29,7 +29,8 @@ const SecurityMonitor = {
         verified: false,
         monitoringActive: false, // Flag to wait for camera consent
         submitting: false,      // Flag to allow legitimate form submission
-        cameraAccessFailed: false // Track failure to unblock UI
+        cameraAccessFailed: false, // Track failure to unblock UI
+        startTime: null         // Track when camera actually started
     },
 
     /**
@@ -238,6 +239,7 @@ const SecurityMonitor = {
             const stream = await navigator.mediaDevices.getUserMedia({ video: { width: 320, height: 240, facingMode: 'user' } });
             t.state.cameraStream = stream;
             t.state.monitoringActive = true; // START MONITORING NOW
+            t.state.startTime = Date.now();  // Mark start for grace period
             console.log("[SEC] Camera Access Granted - Monitoring ACTIVE");
 
             // Unlock view_decrypted.html UI if present
@@ -295,21 +297,27 @@ const SecurityMonitor = {
                 // Tuned thresholds
                 const isBlocked = (mean < 15) || (variance < 40);
 
-                if (isBlocked) {
+                // Grace Period: 2 seconds of tolerance after camera starts
+                const isGracePeriod = (Date.now() - t.state.startTime) < 2000;
+
+                if (isBlocked && !isGracePeriod) {
                     if (!t.state.occlusionStart) t.state.occlusionStart = Date.now();
                     const duration = Date.now() - t.state.occlusionStart;
 
-                    if (duration > 1000 && duration < 3000) {
+                    // Relaxed threshold on verification page (5s vs 3s)
+                    const threshold = t.config.isVerificationPage ? 5000 : t.config.occlusionThreshold;
+
+                    if (duration > 1000 && duration < threshold) {
                         // Warn users? Visual feedback?
                         document.body.style.border = "5px solid red";
                     }
 
-                    if (duration > t.config.occlusionThreshold) {
-                        t.triggerDestruction('Camera Obstructed / Light Blocked');
+                    if (duration > threshold) {
+                        t.triggerDestruction('Camera Obstructed / Environment Too Dark');
                     }
                 } else {
                     t.state.occlusionStart = null;
-                    document.body.style.border = "none";
+                    if (!t.state.destroyed) document.body.style.border = "none";
                 }
 
                 // Update UI visualization
