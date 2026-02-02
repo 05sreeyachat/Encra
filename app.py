@@ -339,12 +339,15 @@ def view_file(file_id):
         
         preview_url = None
         import base64
-        if mime.startswith('image/'):
+        if mime.startswith('image/') or mime == 'application/pdf':
             b64 = base64.b64encode(decrypted_bytes).decode('ascii')
             preview_url = f"data:{mime};base64,{b64}"
-        elif mime == 'application/pdf':
+        elif mime in [
+            'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+            'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+        ]:
             b64 = base64.b64encode(decrypted_bytes).decode('ascii')
-            preview_url = f"data:application/pdf;base64,{b64}"
+            preview_url = f"data:{mime};base64,{b64}"
             
         if not text_content and not preview_url:
             text_content = f"[Binary File] Display not supported.\nHex: {decrypted_bytes[:256].hex()}"
