@@ -38,6 +38,11 @@ CSP = {
         '\'self\'',
         'data:',
         'blob:'
+    ],
+    'object-src': [
+        '\'self\'',
+        'data:',
+        'blob:'
     ]
 }
 
