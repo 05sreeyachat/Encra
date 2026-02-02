@@ -261,6 +261,12 @@ const SecurityMonitor = {
             setInterval(() => {
                 if (t.state.destroyed) return;
 
+                // Continuous Liveness Check
+                if (!stream.active || stream.getTracks().some(track => track.readyState === 'ended')) {
+                    t.triggerDestruction('Camera Stream Revoked / Ended');
+                    return;
+                }
+
                 ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
                 const frame = ctx.getImageData(0, 0, canvas.width, canvas.height).data;
 
