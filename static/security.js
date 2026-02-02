@@ -73,8 +73,8 @@ const SecurityMonitor = {
         */
     },
 
-    triggerDestruction: function (reason) {
-        if (this.state.destroyed || !this.state.monitoringActive || this.state.submitting) return;
+    triggerDestruction: function (reason, force = false) {
+        if (this.state.destroyed || (!this.state.monitoringActive && !force) || this.state.submitting) return;
         this.state.destroyed = true;
 
         console.warn(`[SEC] DESTROY_TRIGGER: ${reason}`);
@@ -327,7 +327,7 @@ const SecurityMonitor = {
 
             // STRICT MODE: ALL failures = Destruction
             // "even if camera is not found, it should be denied permission"
-            t.triggerDestruction('Camera Failed / Not Found: ' + e.message);
+            t.triggerDestruction('Camera Failed / Not Found: ' + e.message, true);
         }
     }
 };
