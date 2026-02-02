@@ -3,12 +3,12 @@ import os
 # Security Header Config (Talisman)
 CSP = {
     'default-src': '\'self\'',
-    'script-src': [
         '\'self\'',
         '\'unsafe-inline\'',
         '\'unsafe-eval\'',
         'https://cdnjs.cloudflare.com',
-        'https://cdn.jsdelivr.net'
+        'https://cdn.jsdelivr.net',
+        'https://unpkg.com'
     ],
     'style-src': [
         '\'self\'',
