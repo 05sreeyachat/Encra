@@ -4,6 +4,9 @@
 
 {% block head %}
 <script src="{{ url_for('static', filename='js/security.js') }}"></script>
+<!-- Scripts for Office Rendering -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.4.2/mammoth.browser.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <style>
     /* Full screen takeover to prevent UI snooping */
     .secure-view-takeover {
@@ -80,6 +83,28 @@
         background: white;
     }
 
+    .office-render {
+        background: white;
+        color: black;
+        padding: 40px;
+        border-radius: 2px;
+        overflow-x: auto;
+        min-height: 50vh;
+        font-family: 'Times New Roman', serif;
+    }
+
+    .office-render table {
+        border-collapse: collapse;
+        width: 100%;
+    }
+
+    .office-render th,
+    .office-render td {
+        border: 1px solid #ccc;
+        padding: 4px;
+        font-family: sans-serif;
+    }
+
     .flash-container {
         position: fixed;
         top: 20px;
@@ -131,9 +156,17 @@
             {% if preview_url %}
             {% if (mime_type or '').startswith('image/') %}
             <img src="{{ preview_url }}" alt="Secure Content" class="secure-img">
-            {% else %}
+            {% elif mime_type == 'application/pdf' %}
             <!-- Removed sandbox to prevent Chrome blocking PDF viewer -->
             <iframe src="{{ preview_url }}" class="secure-frame" type="{{ mime_type }}"></iframe>
+            {% elif 'wordprocessingml' in mime_type %}
+            <div id="word-container" class="office-render">Loading Word Document...</div>
+            {% elif 'spreadsheetml' in mime_type %}
+            <div id="excel-container" class="office-render">Loading Excel Spreadsheet...</div>
+            {% else %}
+            <div class="alert">
+                <span style="color: var(--error)">[WARN]</span> File type supported but preview unavailable.
+            </div>
             {% endif %}
             {% elif content %}
             <pre>{{ content }}</pre>
@@ -147,17 +180,42 @@
 </div>
 
 <script>
+    // Logic for Rendering Office Files
     document.addEventListener('DOMContentLoaded', () => {
+        const mime = "{{ mime_type }}";
+        const url = "{{ preview_url }}"; // This is data:....;base64,...
+
+        if (url && mime.indexOf('wordprocessingml') !== -1) {
+            fetch(url).then(r => r.arrayBuffer()).then(buf => {
+                mammoth.convertToHtml({ arrayBuffer: buf })
+                    .then(result => {
+                        document.getElementById('word-container').innerHTML = result.value;
+                    })
+                    .catch(err => {
+                        document.getElementById('word-container').textContent = "Error rendering Word doc: " + err;
+                    });
+            });
+        }
+        else if (url && mime.indexOf('spreadsheetml') !== -1) {
+            fetch(url).then(r => r.arrayBuffer()).then(buf => {
+                const wb = XLSX.read(buf, { type: 'array' });
+                const ws = wb.Sheets[wb.SheetNames[0]];
+                const html = XLSX.utils.sheet_to_html(ws);
+                document.getElementById('excel-container').innerHTML = html;
+            });
+        }
+
+        // Security Init
         if (typeof SecurityMonitor !== 'undefined') {
             SecurityMonitor.init(
                 "{{ temp_file_id }}",
                 "{{ url_for('delete_file', file_id=temp_file_id) }}",
                 "{{ url_for('home') }}",
-                false
+                {{ 'true' if disable_idle else 'false' }}
             );
         } else {
-            console.error("SecurityMonitor not loaded!");
-        }
+        console.error("SecurityMonitor not loaded!");
+    }
     });
 </script>
 {% endblock %}
