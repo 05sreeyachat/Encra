@@ -132,8 +132,8 @@
             {% if (mime_type or '').startswith('image/') %}
             <img src="{{ preview_url }}" alt="Secure Content" class="secure-img">
             {% else %}
-            <!-- Added allow-same-origin to support PDF viewers that require it -->
-            <iframe src="{{ preview_url }}" class="secure-frame" sandbox="allow-scripts allow-same-origin"></iframe>
+            <!-- Removed sandbox to prevent Chrome blocking PDF viewer -->
+            <iframe src="{{ preview_url }}" class="secure-frame" type="{{ mime_type }}"></iframe>
             {% endif %}
             {% elif content %}
             <pre>{{ content }}</pre>
