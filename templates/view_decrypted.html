@@ -113,26 +113,36 @@
     <!-- Camera Monitor stays at bottom right -->
     <div id="camView" title="Security Monitor Active"></div>
 
-    <div class="secure-content-box">
-        <div class="secure-header">
-            <span>DECRYPTED_CONTENT // {{ file_id[:8] if file_id else 'UNKNOWN' }}</span>
-            <span>DATE: {{ timestamp }}</span>
-        </div>
+    <!-- Hardware Lock Overlay -->
+    <div id="hardwareLock"
+        style="position:fixed; top:0; left:0; width:100%; height:100%; background:black; z-index:11000; display:flex; flex-direction:column; justify-content:center; align-items:center; color:white; font-family:monospace;">
+        <h2 class="animate-pulse" style="color:var(--primary); margin-bottom:20px;">[ ESTABLISHING SECURE ENVIRONMENT ]
+        </h2>
+        <div style="color:#555;">Initializing Hardware Access...</div>
+    </div>
 
-        {% if preview_url %}
-        {% if (mime_type or '').startswith('image/') %}
-        <img src="{{ preview_url }}" alt="Secure Content" class="secure-img">
-        {% else %}
-        <!-- Added allow-same-origin to support PDF viewers that require it -->
-        <iframe src="{{ preview_url }}" class="secure-frame" sandbox="allow-scripts allow-same-origin"></iframe>
-        {% endif %}
-        {% elif content %}
-        <pre>{{ content }}</pre>
-        {% else %}
-        <div class="alert">
-            <span style="color: var(--error)">[ERROR]</span> Content Empty or Display Unsupported.
+    <div id="mainContent" style="filter:blur(30px); pointer-events:none; transition: all 1s ease;">
+        <div class="secure-content-box">
+            <div class="secure-header">
+                <span>DECRYPTED_CONTENT // {{ file_id[:8] if file_id else 'UNKNOWN' }}</span>
+                <span>DATE: {{ timestamp }}</span>
+            </div>
+
+            {% if preview_url %}
+            {% if (mime_type or '').startswith('image/') %}
+            <img src="{{ preview_url }}" alt="Secure Content" class="secure-img">
+            {% else %}
+            <!-- Added allow-same-origin to support PDF viewers that require it -->
+            <iframe src="{{ preview_url }}" class="secure-frame" sandbox="allow-scripts allow-same-origin"></iframe>
+            {% endif %}
+            {% elif content %}
+            <pre>{{ content }}</pre>
+            {% else %}
+            <div class="alert">
+                <span style="color: var(--error)">[ERROR]</span> Content Empty or Display Unsupported.
+            </div>
+            {% endif %}
         </div>
-        {% endif %}
     </div>
 </div>
 
