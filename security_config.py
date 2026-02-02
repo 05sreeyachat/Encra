@@ -54,6 +54,7 @@ SECURE_HEADERS = {
     'force_https': True,
     'frame_options': 'SAMEORIGIN',
     'content_security_policy': CSP,
+    'permissions_policy': 'camera=(self)',
     'referrer_policy': 'strict-origin-when-cross-origin'
 }
 
