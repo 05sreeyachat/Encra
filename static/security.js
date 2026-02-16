@@ -11,10 +11,10 @@ const SecurityMonitor = {
         homeUrl: null,     // Set by init
         alertUrl: '/alert',
         idleTimeout: 15000, // 15 seconds idle allowed
-        occlusionThreshold: 5000, // 5 seconds camera block allowed
+        mouseIdleTimeout: 10000, // 10 seconds of no mouse movement triggers idle
+        occlusionThreshold: 3000, // 3 seconds camera block allowed
         disableIdle: false,
-        isVerificationPage: false,
-        countdownDuration: 5000 // 5 seconds warning
+        isVerificationPage: false // New: allow slightly more lenient behavior
     },
 
     // State
@@ -26,14 +26,13 @@ const SecurityMonitor = {
         destroyed: false,
         cameraStream: null,
         lastActivity: Date.now(),
+        lastMouseActivity: Date.now(), // Track mouse movement separately
         occlusionStart: null,
         verified: false,
         monitoringActive: false, // Flag to wait for camera consent
         submitting: false,      // Flag to allow legitimate form submission
         cameraAccessFailed: false, // Track failure to unblock UI
-        startTime: null,         // Track when camera actually started
-        countdownActive: false,
-        countdownTimer: null
+        startTime: null         // Track when camera actually started
     },
 
     /**
@@ -92,16 +91,7 @@ const SecurityMonitor = {
         }
 
         // LOCKDOWN UI
-        document.body.innerHTML = `
-            <div style="background:black; color:red; height:100vh; width:100vw; position:fixed; top:0; left:0; z-index:999999; display:flex; flex-direction:column; justify-content:center; align-items:center; text-align:center; font-family:monospace; padding:20px; box-sizing:border-box;">
-                <h1 style="font-size:3rem; margin-bottom:1rem;">[ SECURITY_LOCKDOWN ]</h1>
-                <p style="font-size:1.5rem; border:1px solid red; padding:10px;">REASON: ${reason}</p>
-                <p style="margin-top:2rem; color:#550000;">All cryptographic keys purged. Notifying authorities...</p>
-                <div style="margin-top:2rem; font-size:0.8rem; opacity:0.5;">ERROR_CODE: 0x${Math.floor(Math.random() * 16777215).toString(16).toUpperCase()}</div>
-            </div>`;
-
-        // Clear warning if exists
-        this.clearWarning();
+        document.body.innerHTML = '<div style="background:black; color:red; height:100vh; display:flex; justify-content:center; align-items:center; text-align:center; font-family:monospace;"><h1>SECURITY LOCKDOWN<br>' + reason + '</h1></div>';
 
         // Notify Server
         const payload = JSON.stringify({ reason: reason });
@@ -124,47 +114,8 @@ const SecurityMonitor = {
             body: payload,
             keepalive: true
         }).finally(() => {
-            setTimeout(() => window.location.replace(this.config.homeUrl), 3000);
+            setTimeout(() => window.location.replace(this.config.homeUrl), 2000);
         });
-    },
-
-    showWarning: function (reason, callback) {
-        if (this.state.countdownActive || this.state.destroyed) return;
-        this.state.countdownActive = true;
-
-        console.warn(`[SEC] WARNING: ${reason}. Destruction in 5s.`);
-
-        let timeLeft = 5;
-        const warningDiv = document.createElement('div');
-        warningDiv.id = 'sec-warning-popup';
-        warningDiv.style = "position:fixed; top:20px; left:50%; transform:translateX(-50%); background:rgba(255,0,0,0.9); color:white; padding:20px; border:3px solid white; z-index:1000000; font-family:monospace; text-align:center; box-shadow:0 0 50px rgba(0,0,0,0.5);";
-        warningDiv.innerHTML = `
-            <div style="font-weight:bold; font-size:1.2rem; margin-bottom:10px;">!!! SECURITY WARNING !!!</div>
-            <div>${reason} detected.</div>
-            <div style="font-size:2rem; margin:10px 0;">DESTRUCTION IN: <span id="sec-countdown">${timeLeft}</span>s</div>
-            <div style="font-size:0.8rem;">Move mouse or press any key to ABORT.</div>
-        `;
-        document.body.appendChild(warningDiv);
-
-        this.state.countdownTimer = setInterval(() => {
-            timeLeft--;
-            const countEl = document.getElementById('sec-countdown');
-            if (countEl) countEl.innerText = timeLeft;
-
-            if (timeLeft <= 0) {
-                this.clearWarning();
-                callback();
-            }
-        }, 1000);
-    },
-
-    clearWarning: function () {
-        if (!this.state.countdownActive) return;
-        clearInterval(this.state.countdownTimer);
-        this.state.countdownActive = false;
-        const warningDiv = document.getElementById('sec-warning-popup');
-        if (warningDiv) warningDiv.remove();
-        console.log("[SEC] Security Warning Cleared / Aborted");
     },
 
     sendAlert: function (type, reason) {
@@ -216,21 +167,13 @@ const SecurityMonitor = {
 
         // 2. Keyboard Blockers (PrintScreen, Shortcuts)
         document.addEventListener('keyup', (e) => {
-            // Catch PrintScreen specifically on release
-            if (e.key === 'PrintScreen' || e.keyCode === 44) {
-                t.sendAlert('screenshot', 'PrintScreen Key Detected');
-                t.triggerDestruction('Unauthorized Screen Capture (PrintScreen)', true);
+            if (e.key === 'PrintScreen') {
+                t.sendAlert('screenshot', 'PrintScreen Key');
+                t.triggerDestruction('Screenshot Attempt');
             }
         });
 
         document.addEventListener('keydown', (e) => {
-            t.clearWarning(); // Any activity clears warnings
-
-            // PrintScreen (often keydown doesn't trigger for it, but some browsers do)
-            if (e.key === 'PrintScreen' || e.keyCode === 44) {
-                e.preventDefault();
-                t.triggerDestruction('Unauthorized Screen Capture (PrintScreen)', true);
-            }
             // F12, Ctrl+Shift+I, Ctrl+Shift+C (DevTools)
             if (e.key === 'F12' || (e.ctrlKey && e.shiftKey && (e.key === 'I' || e.key === 'C'))) {
                 e.preventDefault();
@@ -252,15 +195,15 @@ const SecurityMonitor = {
                 e.preventDefault(); // Likely won't stop OS, but we destroy.
                 t.triggerDestruction('Snipping Tool Attempt (Win+Shift+S)');
             }
-
-            t.resetIdle();
+            // Note: Keyboard activity no longer resets idle timer
+            // Only mouse movement resets it (see mousemove handler below)
         });
 
         // 3. Mouse Blockers
         document.addEventListener('contextmenu', e => e.preventDefault());
         document.addEventListener('selectstart', e => e.preventDefault());
-        document.addEventListener('mousemove', () => t.resetIdle());
-        document.addEventListener('mousedown', () => t.resetIdle());
+        document.addEventListener('mousemove', () => t.resetMouseIdle());
+        document.addEventListener('mousedown', () => t.resetMouseIdle());
         document.addEventListener('copy', e => { e.preventDefault(); t.triggerDestruction('Clipboard Copy'); });
 
         // Also catch anchor clicks to prevent destruction on navigation
@@ -280,20 +223,23 @@ const SecurityMonitor = {
     },
 
     startIdleTimer: function () {
+        // Check every 1s for mouse inactivity
         setInterval(() => {
-            if (this.state.destroyed || this.state.countdownActive || this.state.submitting) return;
-
-            if (Date.now() - this.state.lastActivity > this.config.idleTimeout) {
-                this.showWarning('User Inactivity', () => {
-                    this.triggerDestruction(`Security Timeout (${this.config.idleTimeout / 1000}s Idle)`);
-                });
+            const mouseIdleTime = Date.now() - this.state.lastMouseActivity;
+            if (mouseIdleTime > this.config.mouseIdleTimeout) {
+                this.triggerDestruction(`Idle Timeout (No mouse movement for ${Math.round(mouseIdleTime / 1000)}s)`);
             }
         }, 1000);
     },
 
     resetIdle: function () {
+        // Legacy method - kept for compatibility
         this.state.lastActivity = Date.now();
-        this.clearWarning();
+    },
+
+    resetMouseIdle: function () {
+        // Track mouse activity separately
+        this.state.lastMouseActivity = Date.now();
     },
 
     initCamera: async function () {
@@ -307,11 +253,17 @@ const SecurityMonitor = {
 
             // Unlock view_decrypted.html UI if present
             const lock = document.getElementById('hardwareLock');
-            if (lock) lock.style.display = 'none';
+            if (lock) {
+                lock.style.display = 'none';
+                console.log('[SEC] Hardware lock removed');
+            }
             const content = document.getElementById('mainContent');
             if (content) {
                 content.style.filter = 'none';
                 content.style.pointerEvents = 'auto';
+                console.log('[SEC] Content unblurred and enabled');
+            } else {
+                console.warn('[SEC] mainContent element not found');
             }
 
             const video = document.createElement('video');
@@ -338,67 +290,114 @@ const SecurityMonitor = {
                 let sum = 0;
                 let sqSum = 0;
                 let count = 0;
+                let pixelCount = 0;
 
-                for (let i = 0; i < frame.length; i += 4 * 4) { // sample every 4th pixel
+                // Sample every 4th pixel for performance
+                for (let i = 0; i < frame.length; i += 4 * 4) {
                     const r = frame[i];
                     const g = frame[i + 1];
                     const b = frame[i + 2];
-                    const l = 0.299 * r + 0.587 * g + 0.114 * b; // Luminance
+                    const l = 0.299 * r + 0.587 * g + 0.114 * b; // Luminance formula
                     sum += l;
                     sqSum += l * l;
                     count++;
+                    pixelCount++;
                 }
 
                 const mean = sum / count;
                 const variance = (sqSum / count) - (mean * mean);
 
-                // Heuristics:
-                // 1. Pitch black (covered completely) -> mean < 15
-                // 2. Uniform color (post-it note/finger close up) -> variance < 50
-                // 3. Significant sudden drop (diff check) - omitted for simplicity/stability in favor of raw thresholds
+                // Enhanced Heuristics for Light Detection:
+                // 1. Very dark (no light) -> mean < 20
+                // 2. Pitch black (completely covered) -> mean < 10
+                // 3. Uniform color (covered with object) -> variance < 50
+                // 4. Combined check: dark AND uniform -> high confidence of obstruction
 
-                // Tuned thresholds
-                const isBlocked = (mean < 15) || (variance < 40);
+                // Improved thresholds for better detection
+                const isPitchBlack = mean < 10;  // Extremely dark
+                const isVeryDark = mean < 20;    // Very low light
+                const isUniform = variance < 50;  // No detail/variation
+
+                // Blocked if: pitch black OR (very dark AND uniform)
+                const isBlocked = isPitchBlack || (isVeryDark && isUniform);
 
                 // Grace Period: 2 seconds of tolerance after camera starts
                 const isGracePeriod = (Date.now() - t.state.startTime) < 2000;
 
+                // Log detection values for debugging (every 10 checks to avoid spam)
+                if (Math.random() < 0.1) {
+                    console.log(`[SEC] Light Check: mean=${mean.toFixed(1)}, variance=${variance.toFixed(1)}, blocked=${isBlocked}, grace=${isGracePeriod}`);
+                }
+
                 if (isBlocked && !isGracePeriod) {
-                    if (!t.state.occlusionStart) t.state.occlusionStart = Date.now();
+                    if (!t.state.occlusionStart) {
+                        t.state.occlusionStart = Date.now();
+                        console.warn(`[SEC] Darkness/Obstruction detected! mean=${mean.toFixed(1)}, variance=${variance.toFixed(1)}`);
+                    }
                     const duration = Date.now() - t.state.occlusionStart;
 
                     // Relaxed threshold on verification page (5s vs 3s)
                     const threshold = t.config.isVerificationPage ? 5000 : t.config.occlusionThreshold;
 
                     if (duration > 1000 && duration < threshold) {
-                        // Warn users? Visual feedback?
+                        // Warn users with visual feedback
                         document.body.style.border = "5px solid red";
+                        console.warn(`[SEC] Warning: Darkness detected for ${Math.round(duration / 1000)}s`);
                     }
 
                     if (duration > threshold) {
-                        t.triggerDestruction('Camera Obstructed / Environment Too Dark');
+                        const reason = isPitchBlack
+                            ? `Camera Completely Dark (mean: ${mean.toFixed(1)})`
+                            : `Camera Obstructed / Environment Too Dark (mean: ${mean.toFixed(1)}, variance: ${variance.toFixed(1)})`;
+                        console.error(`[SEC] TRIGGERING DESTRUCTION: ${reason}`);
+                        t.triggerDestruction(reason);
                     }
                 } else {
+                    // Reset occlusion tracking when light is detected
+                    if (t.state.occlusionStart) {
+                        console.log('[SEC] Light restored, resetting occlusion timer');
+                    }
                     t.state.occlusionStart = null;
                     if (!t.state.destroyed) document.body.style.border = "none";
                 }
 
-                // Update UI visualization
+                // Update UI visualization with detailed info
                 const camView = document.getElementById('camView');
                 if (camView) {
                     camView.style.borderColor = isBlocked ? 'red' : 'green';
-                    camView.title = `L: ${Math.round(mean)} V: ${Math.round(variance)}`;
+                    camView.title = `Light: ${Math.round(mean)} | Detail: ${Math.round(variance)} | ${isBlocked ? 'BLOCKED' : 'OK'}`;
                 }
 
             }, 500); // Check every 500ms
 
         } catch (e) {
-            console.error("Camera Error", e);
+            console.error("[SEC] Camera Error:", e);
             t.sendAlert('camera', 'Camera Permission Denied / Error: ' + e.message);
+            t.state.cameraAccessFailed = true;
 
-            // STRICT MODE: ALL failures = Destruction
-            // "even if camera is not found, it should be denied permission"
-            t.triggerDestruction('Camera Failed / Not Found: ' + e.message, true);
+            // Check if we're on the view_decrypted page (has hardwareLock element)
+            const lock = document.getElementById('hardwareLock');
+            const content = document.getElementById('mainContent');
+
+            if (lock || content) {
+                // On view_decrypted page: unlock content but warn user
+                console.warn('[SEC] Camera failed on view page - unlocking content without monitoring');
+                if (lock) lock.style.display = 'none';
+                if (content) {
+                    content.style.filter = 'none';
+                    content.style.pointerEvents = 'auto';
+                }
+                // Show warning banner
+                const warningBanner = document.createElement('div');
+                warningBanner.style.cssText = 'position:fixed; top:20px; left:50%; transform:translateX(-50%); background:#ff6b6b; color:white; padding:15px 30px; border-radius:4px; z-index:12000; font-family:monospace; text-align:center;';
+                warningBanner.innerHTML = '⚠️ Camera monitoring unavailable - Viewing without security monitoring';
+                document.body.appendChild(warningBanner);
+                setTimeout(() => warningBanner.remove(), 5000);
+            } else {
+                // On verification page or other: strict mode - destroy
+                console.error('[SEC] Camera failed on non-view page - triggering destruction');
+                t.triggerDestruction('Camera Failed / Not Found: ' + e.message, true);
+            }
         }
     }
 };
